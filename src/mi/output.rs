@@ -70,6 +70,7 @@ pub struct ResultRecord {
     pub(crate) token: Option<u64>,
     pub class: ResultClass,
     pub results: Value,
+    pub console_output: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -97,6 +98,7 @@ pub async fn process_output<T: AsyncRead + Unpin>(
     is_running: Arc<AtomicBool>,
 ) {
     let mut reader = BufReader::new(output);
+    let mut pending_console_output: Vec<String> = Vec::new();
 
     loop {
         let mut buffer = String::new();
@@ -116,7 +118,7 @@ pub async fn process_output<T: AsyncRead + Unpin>(
                 };
                 debug!("{:?}", &parse_result);
                 match parse_result {
-                    Output::Result(record) => {
+                    Output::Result(mut record) => {
                         match record.class {
                             ResultClass::Running => is_running.store(true, Ordering::SeqCst),
                             //Apparently sometimes gdb first claims to be running, only to then
@@ -124,13 +126,18 @@ pub async fn process_output<T: AsyncRead + Unpin>(
                             ResultClass::Error => is_running.store(false, Ordering::SeqCst),
                             _ => {}
                         }
+                        record.console_output = std::mem::take(&mut pending_console_output);
                         result_pipe.send(record).await.expect("send result to pipe");
                     }
                     Output::OutOfBand(record) => {
-                        if let OutOfBandRecord::AsyncRecord { class: AsyncClass::Stopped, .. } =
-                            record
-                        {
-                            is_running.store(false, Ordering::SeqCst);
+                        match &record {
+                            OutOfBandRecord::AsyncRecord { class: AsyncClass::Stopped, .. } => {
+                                is_running.store(false, Ordering::SeqCst);
+                            }
+                            OutOfBandRecord::StreamRecord { kind: StreamKind::Console, data } => {
+                                pending_console_output.push(data.clone());
+                            }
+                            _ => {}
                         }
                         out_of_band_pipe
                             .send(record)
@@ -329,6 +336,7 @@ fn result_record(input: &str) -> IResult<&str, Output> {
                 token: t,
                 class: c,
                 results: Value::Object(to_map(results)),
+                console_output: Vec::new(),
             })
         },
     )

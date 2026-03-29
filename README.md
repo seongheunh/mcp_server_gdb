@@ -1,4 +1,34 @@
-# MCP Server GDB
+# MCP Server GDB (Modified)
+
+> Based on [pansila/mcp_server_gdb](https://github.com/pansila/mcp_server_gdb). Modified for pwnable/CTF exploit development workflows.
+
+### Changes from upstream
+
+- **New tools for binary exploitation**
+  - `execute_raw_command` — Run arbitrary GDB CLI commands (`x/20gx $rsp`, `target remote`, `vmmap`, etc.)
+  - `set_breakpoint_at_address` — Address-based breakpoints for stripped binaries
+  - `set_breakpoint_at_function` — Function name-based breakpoints
+  - `disassemble` — Disassemble memory ranges with optional raw opcodes
+  - `evaluate_expression` — Evaluate expressions in debugging context (`*(int*)$rsp`, `(char*)$rdi`)
+  - `write_memory` — Write hex bytes to memory for runtime patching
+- **Default SSE port changed from 8080 to 9000** (avoids conflict with Ghidra MCP)
+- **Added `USAGE.md`** — Tool reference and workflow guide (local, Docker, multi-binary, exploit testing)
+
+### Quick Start
+
+**1. Start the server (SSE transport):**
+```bash
+/home/user/mcp_server_gdb/target/release/mcp-server-gdb sse
+```
+
+**2. Register MCP in Claude Code (one-time, global):**
+```bash
+claude mcp add --transport sse --scope user gdb http://127.0.0.1:9000/sse
+```
+
+For detailed tool reference and workflow examples (local, Docker, exploit testing, multi-binary), see [`USAGE.md`](USAGE.md).
+
+---
 
 A GDB/MI protocol server based on the MCP protocol, providing remote application debugging capabilities with AI assistants.
 

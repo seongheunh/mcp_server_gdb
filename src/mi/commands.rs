@@ -530,6 +530,15 @@ impl MiCommand {
         MiCommand { operation: "data-read-memory-bytes", options: Some(options), parameters: None }
     }
 
+    /// Write memory bytes at the specified address
+    pub fn data_write_memory_bytes(address: String, contents: String) -> MiCommand {
+        MiCommand {
+            operation: "data-write-memory-bytes",
+            options: Some(vec![address.into(), contents.into()]),
+            parameters: None,
+        }
+    }
+
     /// Empty command, used for testing purposes
     pub fn empty() -> MiCommand {
         MiCommand { operation: "", ..Default::default() }

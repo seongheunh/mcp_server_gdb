@@ -622,4 +622,10 @@ fn register_tools(builder: ServerProtocolBuilder) -> ServerProtocolBuilder {
         .register_tool(tools::GetRegistersTool::tool(), tools::GetRegistersTool::call())
         .register_tool(tools::GetRegisterNamesTool::tool(), tools::GetRegisterNamesTool::call())
         .register_tool(tools::ReadMemoryTool::tool(), tools::ReadMemoryTool::call())
+        .register_tool(tools::SetBreakpointAtAddressTool::tool(), tools::SetBreakpointAtAddressTool::call())
+        .register_tool(tools::SetBreakpointAtFunctionTool::tool(), tools::SetBreakpointAtFunctionTool::call())
+        .register_tool(tools::ExecuteRawCommandTool::tool(), tools::ExecuteRawCommandTool::call())
+        .register_tool(tools::DisassembleTool::tool(), tools::DisassembleTool::call())
+        .register_tool(tools::EvaluateExpressionTool::tool(), tools::EvaluateExpressionTool::call())
+        .register_tool(tools::WriteMemoryTool::tool(), tools::WriteMemoryTool::call())
 }

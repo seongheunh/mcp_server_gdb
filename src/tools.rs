@@ -290,3 +290,126 @@ pub async fn next_execution_tool(session_id: String) -> Result<ToolResponseConte
     let ret = GDB_MANAGER.next_execution(&session_id).await?;
     Ok(tool_text_content!(format!("Stepped over next line: {}", ret)))
 }
+
+#[tool(
+    name = "set_breakpoint_at_address",
+    description = "Set a breakpoint at a memory address. Useful for stripped binaries without debug symbols.",
+    params(
+        session_id = "The ID of the GDB session",
+        address = "Memory address to set breakpoint at, as a decimal integer (e.g. the decimal value of 0x401234)"
+    )
+)]
+pub async fn set_breakpoint_at_address_tool(
+    session_id: String,
+    address: usize,
+) -> Result<ToolResponseContent> {
+    let breakpoint = GDB_MANAGER.set_breakpoint_at_address(&session_id, address).await?;
+    Ok(tool_text_content!(format!(
+        "Set breakpoint at address: {}",
+        serde_json::to_string(&breakpoint)?
+    )))
+}
+
+#[tool(
+    name = "set_breakpoint_at_function",
+    description = "Set a breakpoint at a function name in a specific file.",
+    params(
+        session_id = "The ID of the GDB session",
+        file = "Source file path",
+        function = "Function name"
+    )
+)]
+pub async fn set_breakpoint_at_function_tool(
+    session_id: String,
+    file: String,
+    function: String,
+) -> Result<ToolResponseContent> {
+    let breakpoint = GDB_MANAGER
+        .set_breakpoint_at_function(&session_id, &PathBuf::from(file), &function)
+        .await?;
+    Ok(tool_text_content!(format!(
+        "Set breakpoint at function: {}",
+        serde_json::to_string(&breakpoint)?
+    )))
+}
+
+#[tool(
+    name = "execute_raw_command",
+    description = "Execute an arbitrary GDB CLI command. This passes the command through \
+                   GDB's interpreter-exec console interface. Useful for commands not covered \
+                   by other tools, such as: 'x/20gx $rsp', 'info proc mappings', \
+                   'set *0x401234 = 0x90', 'target remote host:port', 'vmmap', \
+                   'disassemble main', 'info functions', 'find /b 0x400000, 0x500000, 0x41', etc.",
+    params(
+        session_id = "The ID of the GDB session",
+        command = "The GDB CLI command to execute (e.g. 'x/20gx $rsp', 'info proc mappings')"
+    )
+)]
+pub async fn execute_raw_command_tool(
+    session_id: String,
+    command: String,
+) -> Result<ToolResponseContent> {
+    let ret = GDB_MANAGER.execute_raw_command(&session_id, &command).await?;
+    Ok(tool_text_content!(format!("Command output: {}", ret)))
+}
+
+#[tool(
+    name = "disassemble",
+    description = "Disassemble a memory range by address. Returns assembly instructions \
+                   in the specified address range.",
+    params(
+        session_id = "The ID of the GDB session",
+        start_addr = "Start address of the range to disassemble (decimal integer)",
+        end_addr = "End address of the range to disassemble (decimal integer)",
+        with_opcodes = "If true, include raw opcodes alongside assembly mnemonics"
+    )
+)]
+pub async fn disassemble_tool(
+    session_id: String,
+    start_addr: usize,
+    end_addr: usize,
+    with_opcodes: Option<bool>,
+) -> Result<ToolResponseContent> {
+    let ret = GDB_MANAGER
+        .disassemble_address(&session_id, start_addr, end_addr, with_opcodes.unwrap_or(false))
+        .await?;
+    Ok(tool_text_content!(format!("Disassembly: {}", ret)))
+}
+
+#[tool(
+    name = "evaluate_expression",
+    description = "Evaluate an expression in the current debugging context. \
+                   Useful for inspecting values, casting pointers, dereferencing, \
+                   and arithmetic. E.g. '*(int*)0x7fffffffe000', '$rsp+0x10', '(char*)$rdi'.",
+    params(
+        session_id = "The ID of the GDB session",
+        expression = "The expression to evaluate"
+    )
+)]
+pub async fn evaluate_expression_tool(
+    session_id: String,
+    expression: String,
+) -> Result<ToolResponseContent> {
+    let ret = GDB_MANAGER.evaluate_expression(&session_id, &expression).await?;
+    Ok(tool_text_content!(format!("Result: {}", ret)))
+}
+
+#[tool(
+    name = "write_memory",
+    description = "Write hex bytes to memory at the specified address. \
+                   The contents should be a hex string (e.g. '41424344' to write 'ABCD'). \
+                   Useful for patching binaries in memory during exploit development.",
+    params(
+        session_id = "The ID of the GDB session",
+        address = "The memory address to write to (e.g. '0x7fffffffe000')",
+        contents = "Hex string of bytes to write (e.g. '41424344' for ABCD)"
+    )
+)]
+pub async fn write_memory_tool(
+    session_id: String,
+    address: String,
+    contents: String,
+) -> Result<ToolResponseContent> {
+    let ret = GDB_MANAGER.write_memory(&session_id, &address, &contents).await?;
+    Ok(tool_text_content!(format!("Memory written: {}", ret)))
+}

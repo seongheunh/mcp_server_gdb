@@ -11,7 +11,9 @@ use uuid::Uuid;
 use crate::TRANSPORT;
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
-use crate::mi::commands::{BreakPointLocation, BreakPointNumber, MiCommand, RegisterFormat};
+use crate::mi::commands::{
+    BreakPointLocation, BreakPointNumber, DisassembleMode, MiCommand, RegisterFormat,
+};
 use crate::mi::output::{OutOfBandRecord, ResultClass, ResultRecord};
 use crate::mi::{GDB, GDBBuilder};
 use crate::models::{
@@ -418,6 +420,105 @@ impl GDBManager {
     /// Next execution
     pub async fn next_execution(&self, session_id: &str) -> AppResult<String> {
         let response = self.send_command_with_timeout(session_id, &MiCommand::exec_next()).await?;
+
+        Ok(response.results.to_string())
+    }
+
+    /// Set breakpoint at address
+    pub async fn set_breakpoint_at_address(
+        &self,
+        session_id: &str,
+        address: usize,
+    ) -> AppResult<BreakPoint> {
+        let command = MiCommand::insert_breakpoint(BreakPointLocation::Address(address));
+        let response = self.send_command_with_timeout(session_id, &command).await?;
+
+        Ok(serde_json::from_value(
+            response
+                .results
+                .get("bkpt")
+                .ok_or(AppError::NotFound("bkpt not found in the result".to_string()))?
+                .to_owned(),
+        )?)
+    }
+
+    /// Set breakpoint at function
+    pub async fn set_breakpoint_at_function(
+        &self,
+        session_id: &str,
+        file: &Path,
+        function: &str,
+    ) -> AppResult<BreakPoint> {
+        let command =
+            MiCommand::insert_breakpoint(BreakPointLocation::Function(file, function));
+        let response = self.send_command_with_timeout(session_id, &command).await?;
+
+        Ok(serde_json::from_value(
+            response
+                .results
+                .get("bkpt")
+                .ok_or(AppError::NotFound("bkpt not found in the result".to_string()))?
+                .to_owned(),
+        )?)
+    }
+
+    /// Execute a raw GDB CLI command via interpreter-exec console
+    pub async fn execute_raw_command(
+        &self,
+        session_id: &str,
+        command: &str,
+    ) -> AppResult<String> {
+        let mi_command = MiCommand::cli_exec(command);
+        let response = self.send_command_with_timeout(session_id, &mi_command).await?;
+
+        if response.console_output.is_empty() {
+            Ok(response.results.to_string())
+        } else {
+            Ok(response.console_output.join(""))
+        }
+    }
+
+    /// Disassemble memory range by address
+    pub async fn disassemble_address(
+        &self,
+        session_id: &str,
+        start_addr: usize,
+        end_addr: usize,
+        with_opcodes: bool,
+    ) -> AppResult<String> {
+        let mode = if with_opcodes {
+            DisassembleMode::DisassemblyWithRawOpcodes
+        } else {
+            DisassembleMode::DisassemblyOnly
+        };
+        let command = MiCommand::data_disassemble_address(start_addr, end_addr, mode);
+        let response = self.send_command_with_timeout(session_id, &command).await?;
+
+        Ok(response.results.to_string())
+    }
+
+    /// Evaluate an expression in the current context
+    pub async fn evaluate_expression(
+        &self,
+        session_id: &str,
+        expression: &str,
+    ) -> AppResult<String> {
+        let command = MiCommand::data_evaluate_expression(expression.to_string());
+        let response = self.send_command_with_timeout(session_id, &command).await?;
+
+        Ok(response.results.to_string())
+    }
+
+    /// Write memory at address
+    pub async fn write_memory(
+        &self,
+        session_id: &str,
+        address: &str,
+        contents: &str,
+    ) -> AppResult<String> {
+        // Use -data-write-memory-bytes MI command
+        let command = MiCommand::data_write_memory_bytes(address.to_string(), contents.to_string());
+        let response = self.send_command_with_timeout(session_id, &command).await?;
 
         Ok(response.results.to_string())
     }
